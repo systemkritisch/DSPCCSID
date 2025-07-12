@@ -1,0 +1,177 @@
+       * ==============================================================
+       *  Member  : DSPCCSIDC  (in source file CBLLESRC)
+       *  Purpose : Command handler for DSPCCSID
+       *             – MASKE1  : Pfad-Eingabe
+       *             – SFLBODY/SFLCTL : Dateiliste mit CCSID
+       *  Compile : CRTCBLLE PGM(MYLIB/DSPCCSIDC) SRCFILE(MYLIB/CBLLESRC)
+       * ==============================================================
+
+       **FREE
+       identification division.
+       program-id.  dspccsidc.
+
+       environment division.
+       configuration section.
+       repository.
+           function all intrinsic.
+
+       input-output section.
+       file-control.
+           select dspfile
+               assign    "DSPCCSID"              *> extern. beschr. DSPF
+               organization screen
+               status    dsp-status.
+
+       data division.
+       working-storage section.
+
+       * ---------- allgemeine Konstanten ----------------------------
+       01  const.
+           05  page-size              pic 9(4)        value 10.
+           05  max-files              pic 9(4)        value 999.
+
+       * ---------- Anzeige-Indikatoren ------------------------------
+       01  indicators.
+           05  ind-help               pic 1 value "0".    *> IND01
+           05  ind-more               pic 1 value "0".    *> IND90 = *MORE
+
+       * ---------- Programmstatus-Feld ------------------------------
+       01  dsp-status                 pic 9(5).
+
+       * ---------- Felder aus dem DSPF ------------------------------
+       01  screen-fields.
+           05  inpath                 pic x(260).
+           05  sel                    pic x.
+           05  showpath               pic x(260).
+           05  sfl-fname     occurs page-size
+                                  indexed by s-idx
+                                  pic x(40).
+           05  sfl-ccsid     occurs page-size
+                                  pic 9(5).
+
+       * ---------- Dateiliste im Speicher ---------------------------
+       01  file-table.
+           05  ft-entry occurs max-files indexed by ft-idx.
+               10 ft-fname           pic x(260).
+               10 ft-ccsid           pic 9(5).
+
+       01  counters.
+           05  file-count            pic 9(4) value 0.
+           05  page-num              pic 9(4) value 1.
+           05  last-page             pic 9(4) value 1.
+
+       procedure division.
+
+       * =============================================================
+       *  Hauptablauf
+       * =============================================================
+       main.
+           open i-o dspfile
+           perform path-entry
+           perform fetch-file-info
+           perform show-subfile
+           close dspfile
+           goback
+           .
+
+       * -------------------------------------------------------------
+       *  Pfad einlesen (MASKE1)
+       * -------------------------------------------------------------
+       path-entry.
+           display maske1
+           accept  maske1
+           move inpath to showpath
+           .
+
+       * -------------------------------------------------------------
+       *  Dateiinformationen sammeln – hier Demo-Mock
+       *  (real: API Qp0lReaddir + Qp0lGetAttr oder QShell/attr)
+       * -------------------------------------------------------------
+       fetch-file-info.
+           move 3       to file-count
+           move "/home/Test/In/IN12345" to ft-fname(1)
+           move 819      to ft-ccsid(1)
+
+           move "/home/Test/In/IN56789" to ft-fname(2)
+           move 1252     to ft-ccsid(2)
+
+           move "/home/Test/In/IN99999" to ft-fname(3)
+           move 1208     to ft-ccsid(3)
+
+           compute last-page =
+                   function ceiling(file-count / page-size)
+           .
+
+       * -------------------------------------------------------------
+       *  Subfile anzeigen & bedienen
+       * -------------------------------------------------------------
+       show-subfile.
+           perform until sel = "Q"
+               perform fill-subfile
+               display sflctl
+               accept  sflctl
+               evaluate true
+                   when key-pressed(03)      *> F3 = Ende
+                        move "Q"  to sel
+                   when key-pressed(04)      *> F4 = Zurück (zur Maske1)
+                        perform path-entry
+                        perform fetch-file-info
+                   when key-pressed(05)      *> F5 = Inhalt zeigen
+                        perform show-content
+                   when key-pressed(rollup)  *> PageDown
+                        if page-num < last-page
+                           add 1 to page-num
+                        end-if
+                   when key-pressed(rolldown) *> PageUp
+                        if page-num > 1
+                           subtract 1 from page-num
+                        end-if
+                   when other
+                        continue
+               end-evaluate
+           end-perform
+           .
+
+       * -------------------------------------------------------------
+       *  Subfile füllen (SFLBODY) für Seite page-num
+       * -------------------------------------------------------------
+       fill-subfile.
+           move "0" to ind-more
+           move 1   to s-idx
+           perform varying ft-idx
+                   from ((page-num - 1) * page-size + 1)
+                   by   1
+                   until (ft-idx > file-count) or
+                         (s-idx  > page-size)
+               move ft-fname(ft-idx)  to sfl-fname(s-idx)
+               move ft-ccsid(ft-idx)  to sfl-ccsid(s-idx)
+               write sflbody
+               set s-idx up by 1
+           end-perform
+
+           if ft-idx <= file-count
+               move "1" to ind-more          *> noch mehr → *MORE
+           end-if
+
+           write sflctl
+           .
+
+       * -------------------------------------------------------------
+       *  Inhalt der ausgewählten Datei anzeigen (Mock)
+       * -------------------------------------------------------------
+       show-content.
+           evaluate sel
+               when "5"
+                   display "Inhalt von:" ft-fname(((page-num - 1) *
+                          page-size) + cursor-subfile-row)
+           end-evaluate
+           .
+
+       * -------------------------------------------------------------
+       *  Hilfsfunktion: Zeilenposition des Cursors im Subfile
+       * -------------------------------------------------------------
+       function cursor-subfile-row return integer.
+           return (function mod(cursor-location-1, page-size)) + 1
+           .
+
+       end program dspccsidc.

@@ -1,0 +1,28 @@
+     A                                      DSPSIZ(24 80 *DS4)
+     A                                      INDARA
+
+* ===== Maske 1: Pfadeingabe ========================================
+     A          R MASKE1                    OVERLAY
+     A                                      CF03(03 'Ende')
+     A                                  2  2'CCSID-Anzeige für IFS-Dateien'
+     A                                  4  2'Pfad oder Muster eingeben:'
+     A            INPATH        260A  B  5  2
+     A                                  23  2'F3=Ende'
+
+* ===== Subfile Body ================================================
+     A          R SFLBODY                   SFL
+     A            SEL           1A  B  6  2 DSPATR(PR)
+     A            FNAME        40A  O  6  6
+     A            CCSID         5S 0 O  6 48
+     A N01                                  DSPATR(HI)
+
+* ===== Subfile Control =============================================
+     A          R SFLCTL                    SFLCTL(SFLBODY) OVERLAY
+     A                                      SFLSIZ(0020) SFLPAG(0010)
+     A                                      CF03(03 'Ende')
+     A                                      CF04(04 'Zurück')
+     A                                      CF05(05 'Inhalt')
+     A                                      CA01(01 'Hilfe')
+     A            SHOWPATH     260A  O  2  2
+     A                                  4  2'   Auswahl   Datei                                 CCSID'
+     A                                  23  2'F3=Ende  F4=Zurück  F5=Inhalt  F1=Hilfe'

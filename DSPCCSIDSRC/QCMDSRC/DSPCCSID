@@ -1,0 +1,4 @@
+CMD        PROMPT('Ausgabe der CCSID von IFS Dateien')
+
+PARM       KWD(PATH) TYPE(*CHAR) LEN(260) MIN(1) +
+           PROMPT('IFS path or pattern')
